@@ -15,6 +15,10 @@ author = "agent"
 task = "workflow.run"
 args = "Battle City Game"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "run_game"
+
 [[workflows.workflow]]
 name = "Battle City Game"
 author = "agent"
@@ -27,7 +31,22 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd BattleCityNES && SDL_VIDEODRIVER=x11 python main.py"
+args = "python main.py"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "run_game"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main.py"
 
 [deployment]
-run = ["sh", "-c", "cd BattleCityNES && SDL_VIDEODRIVER=x11 python main.py"]
+run = ["sh", "-c", "python main.py"]

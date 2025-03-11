@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <rect x="0" y="0" width="16" height="16" fill="#888888" />
+  <rect x="1" y="1" width="14" height="14" fill="#aaaaaa" />
+  
+  <!-- Rivet details -->
+  <circle cx="4" cy="4" r="1" fill="#666666" />
+  <circle cx="12" cy="4" r="1" fill="#666666" />
+  <circle cx="4" cy="12" r="1" fill="#666666" />
+  <circle cx="12" cy="12" r="1" fill="#666666" />
+  
+  <!-- Highlight -->
+  <rect x="2" y="2" width="12" height="6" fill="#cccccc" opacity="0.5" />
+</svg>
