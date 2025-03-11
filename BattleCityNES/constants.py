@@ -11,6 +11,23 @@ TITLE = "Battle City NES Recreation"
 FPS = 60
 MAX_PLAYER_LIVES = 3
 
+# Direction constants
+UP = 0
+RIGHT = 1
+DOWN = 2
+LEFT = 3
+
+# Colors
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
+YELLOW = (255, 255, 0)
+
+# Tank types
+BASIC_TANK = 1
+
 # Tank settings
 PLAYER_SPEED = 2
 ENEMY_SPEED = 1

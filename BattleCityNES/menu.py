@@ -152,11 +152,28 @@ class Menu:
         # Draw title
         title_font = pygame.font.SysFont('Arial', 64)
         title_text = title_font.render("BATTLE CITY", True, YELLOW)
-        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, 150))
+        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, 80))  # Moved title higher
         surface.blit(title_text, title_rect)
         
-        # Draw options
+        # Draw tanks in title - moved much further from text
+        tank_size = 32
+        tank_left = pygame.transform.scale(self.game.sprites.player_tank[UP], (tank_size, tank_size))
+        tank_right = pygame.transform.scale(self.game.sprites.player_tank[UP], (tank_size, tank_size))
+        
+        # Position tanks further away from the title text in battle formation
+        tank_offset_x = 60  # Distance from title edge
+        tank_offset_y = -16  # Vertical adjustment
+        
+        # Position tanks to not overlap with text
+        surface.blit(tank_left, (title_rect.left - tank_offset_x, title_rect.centery + tank_offset_y))
+        surface.blit(tank_right, (title_rect.right + tank_offset_x - tank_size, title_rect.centery + tank_offset_y))
+        
+        # Draw options - centered on screen with more vertical space
         option_font = pygame.font.SysFont('Arial', 36)
+        
+        # Center menu items vertically in the remaining space
+        first_option_y = 200
+        option_spacing = 50
         
         for i, option in enumerate(self.options):
             # Highlight selected option
@@ -164,12 +181,16 @@ class Menu:
                 color = GREEN
                 # Draw tank cursor
                 tank_sprite = pygame.transform.scale(self.game.sprites.player_tank[RIGHT], (24, 24))
-                surface.blit(tank_sprite, (SCREEN_WIDTH // 2 - 140, 250 + i * 50))
+                text = option_font.render(option, True, color)
+                text_width = text.get_width()
+                # Position cursor to the left of the text
+                cursor_x = SCREEN_WIDTH // 2 - text_width // 2 - 30
+                surface.blit(tank_sprite, (cursor_x, first_option_y + i * option_spacing))
             else:
                 color = WHITE
             
             text = option_font.render(option, True, color)
-            rect = text.get_rect(center=(SCREEN_WIDTH // 2, 250 + i * 50))
+            rect = text.get_rect(center=(SCREEN_WIDTH // 2, first_option_y + i * option_spacing))
             surface.blit(text, rect)
         
         # Draw copyright
