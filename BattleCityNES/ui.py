@@ -82,8 +82,8 @@ class MenuUI:
         screen.blit(title_text, title_rect)
         
         # Draw tank decoration
-        self._draw_tank_decoration(screen, SCREEN_WIDTH // 2 - 120, 100)
-        self._draw_tank_decoration(screen, SCREEN_WIDTH // 2 + 120, 100)
+        self._draw_tank_decoration(screen, title_rect.left - 30, title_rect.centery - 10)
+        self._draw_tank_decoration(screen, title_rect.right + 30, title_rect.centery - 10)
         
         # Draw menu items
         for i, item in enumerate(self.menu_items):
@@ -100,14 +100,14 @@ class MenuUI:
                 if self.show_cursor:
                     cursor_text = ">"
                     cursor = self.menu_font.render(cursor_text, True, color)
-                    cursor_rect = cursor.get_rect(midright=(SCREEN_WIDTH // 2 - 10, 200 + i * 50))
+                    cursor_rect = cursor.get_rect(midright=(SCREEN_WIDTH // 2 - 100, 200 + i * 50))
                     screen.blit(cursor, cursor_rect)
             else:
                 color = (200, 200, 200)  # Light gray for unselected items
             
             # Draw menu item
             text = self.menu_font.render(item, True, color)
-            text_rect = text.get_rect(midleft=(SCREEN_WIDTH // 2, 200 + i * 50))
+            text_rect = text.get_rect(center=(SCREEN_WIDTH // 2, 200 + i * 50))
             screen.blit(text, text_rect)
         
         # Draw credits
