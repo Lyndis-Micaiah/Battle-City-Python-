@@ -67,10 +67,19 @@ class Level:
         
         for y in range(rows):
             for x in range(cols):
+                # Handle potential string index errors
+                if x >= len(layout[y]):
+                    print(f"Warning: Layout row {y} is shorter than expected")
+                    continue
+                    
                 tile = layout[y][x]
                 pos_x = x * TILE_SIZE
                 pos_y = y * TILE_SIZE
                 
+                # Skip empty spaces
+                if tile == ' ':
+                    continue
+                    
                 if tile == "B":  # Brick wall
                     BrickWall(self.game, pos_x, pos_y, self.walls)
                 elif tile == "S":  # Steel wall
