@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <rect x="0" y="0" width="16" height="16" fill="#cccccc" stroke="#999999" stroke-width="1" />
+  
+  <!-- Eagle/flag -->
+  <rect x="4" y="4" width="8" height="8" fill="#cc0000" />
+  <polyline points="8,4 8,12" stroke="#ffffff" stroke-width="1" fill="none" />
+  <polyline points="8,4 12,6 8,8" fill="#ffffff" />
+</svg>

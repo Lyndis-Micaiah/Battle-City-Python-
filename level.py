@@ -1,293 +1,306 @@
-"""
-Level module for Battle City game
-"""
-import json
-import os
+# Battle City Game - Level Module
+# Handles level loading, rendering, and game logic
+
 import pygame
-from constants import *
+import json
+import random
+from constants import TILE_SIZE, POWERUP_SPAWN_CHANCE, FREEZE_DURATION
+from sprites import (
+    BrickWall, SteelWall, Water, Bush, Base, PowerUp, Explosion
+)
+from tanks import PlayerTank, EnemyTank
 
 class Level:
-    """
-    Level class that handles level loading and rendering
-    """
-    def __init__(self, level_number, game):
-        """
-        Initialize a level
-        
-        Args:
-            level_number (int): Level number to load
-            game (Game): Game instance
-        """
+    """Class to manage level data and game objects"""
+    
+    def __init__(self, game, level_number):
         self.game = game
         self.level_number = level_number
-        self.base_destroyed = False
+        
+        # Sprite groups
+        self.walls = pygame.sprite.Group()
+        self.water_tiles = pygame.sprite.Group()
+        self.bushes = pygame.sprite.Group()
+        self.bullets = pygame.sprite.Group()
+        self.enemy_tanks = pygame.sprite.Group()
+        self.powerups = pygame.sprite.Group()
+        self.effects = pygame.sprite.Group()
+        
+        # Player and base
+        self.player = None
+        self.base = None
+        
+        # Enemy spawn data
+        self.enemy_spawn_points = []
+        self.enemy_types = []
+        self.enemy_count = 0
+        self.max_enemies = 0
+        self.enemies_spawned = 0
+        self.enemies_destroyed = 0
+        self.spawn_timer = 0
         
         # Load level data
         self.load_level(level_number)
     
     def load_level(self, level_number):
-        """
-        Load level data from JSON file
-        
-        Args:
-            level_number (int): Level number to load
-        """
-        # Try to load from file
+        """Load level data from JSON file"""
         try:
-            with open(f"levels/level{level_number}.json", 'r') as f:
-                level_data = json.load(f)
+            with open(f"levels/level{level_number}.json", "r") as file:
+                level_data = json.load(file)
             
-            self.width = level_data.get("width", 26)
-            self.height = level_data.get("height", 26)
-            self.grid = level_data.get("grid", [])
-            self.player_start = level_data.get("player_start", [SCREEN_WIDTH // 2, SCREEN_HEIGHT - TILE_SIZE])
-            self.enemy_spawns = level_data.get("enemy_spawns", [[0, 0], [SCREEN_WIDTH - TILE_SIZE, 0], [SCREEN_WIDTH // 2, 0]])
-        except (FileNotFoundError, json.JSONDecodeError):
-            # If file doesn't exist or is invalid, generate a default level
-            self.generate_default_level(level_number)
+            # Parse level layout
+            self._parse_layout(level_data["layout"])
+            
+            # Set enemy data
+            self.max_enemies = level_data["enemy_count"]
+            self.enemy_types = level_data["enemy_types"]
+            
+        except Exception as e:
+            print(f"Error loading level: {e}")
+            # Create a simple default level if loading fails
+            self._create_default_level()
     
-    def generate_default_level(self, level_number):
-        """
-        Generate a default level layout
+    def _parse_layout(self, layout):
+        """Parse level layout data"""
+        rows = len(layout)
+        cols = len(layout[0]) if rows > 0 else 0
         
-        Args:
-            level_number (int): Level number to generate
-        """
-        # Set default dimensions
-        self.width = 20
-        self.height = 15
+        for y in range(rows):
+            for x in range(cols):
+                tile = layout[y][x]
+                pos_x = x * TILE_SIZE
+                pos_y = y * TILE_SIZE
+                
+                if tile == "B":  # Brick wall
+                    BrickWall(self.game, pos_x, pos_y, self.walls)
+                elif tile == "S":  # Steel wall
+                    SteelWall(self.game, pos_x, pos_y, self.walls)
+                elif tile == "W":  # Water
+                    Water(self.game, pos_x, pos_y, self.water_tiles)
+                elif tile == "G":  # Bush (grass)
+                    Bush(self.game, pos_x, pos_y, self.bushes)
+                elif tile == "P":  # Player start position
+                    self.player = PlayerTank(self.game, pos_x, pos_y)
+                elif tile == "E":  # Enemy spawn point
+                    self.enemy_spawn_points.append((pos_x, pos_y))
+                elif tile == "X":  # Base
+                    self.base = Base(self.game, pos_x, pos_y)
+    
+    def _create_default_level(self):
+        """Create a simple default level if loading fails"""
+        # Create base
+        self.base = Base(self.game, 240, 448)
         
-        # Create empty grid
-        self.grid = [[EMPTY for _ in range(self.width)] for _ in range(self.height)]
+        # Create player
+        self.player = PlayerTank(self.game, 240, 400)
         
-        # Set player start position
-        self.player_start = [SCREEN_WIDTH // 2, SCREEN_HEIGHT - TILE_SIZE]
+        # Create some walls around base
+        for x in range(208, 272, 16):
+            BrickWall(self.game, x, 416, self.walls)
         
-        # Set enemy spawn positions
-        self.enemy_spawns = [
-            [0, 0],
-            [SCREEN_WIDTH - TILE_SIZE, 0],
-            [SCREEN_WIDTH // 2, 0]
+        BrickWall(self.game, 208, 432, self.walls)
+        BrickWall(self.game, 208, 448, self.walls)
+        BrickWall(self.game, 272, 432, self.walls)
+        BrickWall(self.game, 272, 448, self.walls)
+        
+        # Create some random walls
+        for _ in range(30):
+            x = random.randint(0, 31) * TILE_SIZE
+            y = random.randint(0, 25) * TILE_SIZE
+            if random.random() < 0.7:
+                BrickWall(self.game, x, y, self.walls)
+            else:
+                SteelWall(self.game, x, y, self.walls)
+        
+        # Create some water and bushes
+        for _ in range(10):
+            x = random.randint(0, 31) * TILE_SIZE
+            y = random.randint(0, 25) * TILE_SIZE
+            Water(self.game, x, y, self.water_tiles)
+            
+            x = random.randint(0, 31) * TILE_SIZE
+            y = random.randint(0, 25) * TILE_SIZE
+            Bush(self.game, x, y, self.bushes)
+        
+        # Set enemy spawn points
+        self.enemy_spawn_points = [
+            (0, 0), (240, 0), (480, 0)
         ]
         
-        # Add base at the bottom center
-        base_x = self.width // 2
-        base_y = self.height - 2
-        self.grid[base_y][base_x] = BASE
-        
-        # Add walls around the base
-        for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
-            wall_x = base_x + dx
-            wall_y = base_y + dy
-            
-            if 0 <= wall_x < self.width and 0 <= wall_y < self.height:
-                self.grid[wall_y][wall_x] = BRICK
-        
-        # Add more terrain based on level number
-        if level_number == 1:
-            self._add_level1_terrain()
-        elif level_number == 2:
-            self._add_level2_terrain()
-        elif level_number == 3:
-            self._add_level3_terrain()
+        # Set enemy data
+        self.max_enemies = 10
+        self.enemy_types = [1, 1, 1, 2, 2, 3]
     
-    def _add_level1_terrain(self):
-        """
-        Add terrain for level 1
-        """
-        # Add some brick walls
-        for i in range(3, self.width - 3, 2):
-            for j in range(3, self.height - 5, 2):
-                self.grid[j][i] = BRICK
-        
-        # Add some steel walls
-        for i in range(5, self.width - 5, 6):
-            self.grid[5][i] = STEEL
-        
-        # Add water
-        for i in range(2, 5):
-            for j in range(9, 12):
-                self.grid[j][i] = WATER
-        
-        # Add grass
-        for i in range(self.width - 5, self.width - 2):
-            for j in range(9, 12):
-                self.grid[j][i] = GRASS
+    def handle_event(self, event):
+        """Handle input events for level objects"""
+        if self.player:
+            self.player.handle_event(event)
     
-    def _add_level2_terrain(self):
-        """
-        Add terrain for level 2
-        """
-        # Create a more complex layout with all terrain types
+    def update(self):
+        """Update level state and game objects"""
+        # Update player
+        if self.player:
+            self.player.update()
         
-        # Add brick walls pattern
-        for i in range(2, self.width - 2, 3):
-            for j in range(2, self.height - 5, 3):
-                self.grid[j][i] = BRICK
+        # Update enemy tanks
+        self.enemy_tanks.update()
+        
+        # Update bullets
+        self.bullets.update()
+        
+        # Update water animations
+        self.water_tiles.update()
+        
+        # Update powerups
+        self.powerups.update()
+        
+        # Update effects
+        self.effects.update()
+        
+        # Check bullet collisions
+        self._handle_bullet_collisions()
+        
+        # Check powerup collisions
+        self._handle_powerup_collisions()
+        
+        # Spawn enemies
+        self._spawn_enemies()
+    
+    def draw(self, screen):
+        """Draw all level objects"""
+        # Draw water
+        self.water_tiles.draw(screen)
+        
+        # Draw base
+        if self.base:
+            screen.blit(self.base.image, self.base.rect)
+        
+        # Draw walls
+        self.walls.draw(screen)
+        
+        # Draw powerups
+        self.powerups.draw(screen)
+        
+        # Draw player
+        if self.player:
+            screen.blit(self.player.image, self.player.rect)
+        
+        # Draw enemy tanks
+        self.enemy_tanks.draw(screen)
+        
+        # Draw bullets
+        self.bullets.draw(screen)
+        
+        # Draw bushes on top (for cover)
+        self.bushes.draw(screen)
+        
+        # Draw effects
+        self.effects.draw(screen)
+    
+    def _handle_bullet_collisions(self):
+        """Handle collisions between bullets and other objects"""
+        for bullet in list(self.bullets):
+            # Check collision with walls
+            wall_hit = pygame.sprite.spritecollideany(bullet, self.walls)
+            if wall_hit:
+                if hasattr(wall_hit, 'damage'):
+                    destroyed = wall_hit.damage()
+                    if destroyed:
+                        # Spawn powerup with small chance
+                        if random.random() < POWERUP_SPAWN_CHANCE:
+                            self._spawn_powerup(wall_hit.rect.x, wall_hit.rect.y)
                 
-                if j + 1 < self.height:
-                    self.grid[j+1][i] = BRICK
+                Explosion(self.game, bullet.rect.centerx, bullet.rect.centery, 0.5, self.effects)
+                bullet.kill()
+                continue
+            
+            # Check collision with base
+            if self.base and bullet.rect.colliderect(self.base.rect):
+                self.base.destroy()
+                Explosion(self.game, bullet.rect.centerx, bullet.rect.centery, 0.5, self.effects)
+                bullet.kill()
+                continue
+            
+            # Check collision with player bullets
+            for other_bullet in self.bullets:
+                if bullet != other_bullet and bullet.rect.colliderect(other_bullet.rect):
+                    Explosion(self.game, bullet.rect.centerx, bullet.rect.centery, 0.5, self.effects)
+                    bullet.kill()
+                    other_bullet.kill()
+                    break
+            
+            # Check collision with enemy tanks
+            if bullet in self.bullets and bullet.owner == self.player:
+                enemy_hit = pygame.sprite.spritecollideany(bullet, self.enemy_tanks)
+                if enemy_hit:
+                    if enemy_hit.hit():
+                        self.enemies_destroyed += 1
                     
-                if i + 1 < self.width:
-                    self.grid[j][i+1] = BRICK
-        
-        # Add steel walls at strategic positions
-        for i in range(4, self.width - 4, 8):
-            self.grid[7][i] = STEEL
-            self.grid[7][i+1] = STEEL
-        
-        # Add water area
-        for i in range(10, 15):
-            for j in range(3, 6):
-                self.grid[j][i] = WATER
-        
-        # Add some grass for cover
-        for i in range(5, 10):
-            for j in range(8, 10):
-                self.grid[j][i] = GRASS
-        
-        # Add some ice for slippery terrain
-        for i in range(15, 18):
-            for j in range(8, 11):
-                self.grid[j][i] = ICE
+                    Explosion(self.game, bullet.rect.centerx, bullet.rect.centery, 0.5, self.effects)
+                    bullet.kill()
+                    continue
+            
+            # Check collision with player tank
+            if bullet in self.bullets and bullet.owner != self.player and self.player:
+                if bullet.rect.colliderect(self.player.rect):
+                    if self.player.hit():
+                        Explosion(self.game, bullet.rect.centerx, bullet.rect.centery, 0.5, self.effects)
+                    bullet.kill()
+                    continue
     
-    def _add_level3_terrain(self):
-        """
-        Add terrain for level 3
-        """
-        # Create a challenging layout
-        
-        # Add "maze" of brick walls
-        for i in range(1, self.width - 1, 2):
-            for j in range(1, self.height - 4, 2):
-                self.grid[j][i] = BRICK
-        
-        # Add steel wall barrier
-        for i in range(3, self.width - 3):
-            self.grid[self.height // 2][i] = STEEL
-        
-        # Create openings in the barrier
-        self.grid[self.height // 2][self.width // 4] = EMPTY
-        self.grid[self.height // 2][self.width // 4 * 3] = EMPTY
-        
-        # Add water moat
-        for i in range(0, self.width):
-            if i < self.width // 3 or i > self.width * 2 // 3:
-                self.grid[self.height - 5][i] = WATER
-        
-        # Add grass for cover near base
-        for dx in range(-2, 3):
-            for dy in range(-2, 0):
-                x = self.width // 2 + dx
-                y = self.height - 2 + dy
-                if 0 <= x < self.width and 0 <= y < self.height and self.grid[y][x] == EMPTY:
-                    self.grid[y][x] = GRASS
-        
-        # Add ice at corners
-        for i in range(0, 3):
-            for j in range(0, 3):
-                self.grid[j][i] = ICE
-                self.grid[j][self.width - 1 - i] = ICE
-    
-    def get_tile(self, x, y):
-        """
-        Get the tile type at the specified grid position
-        
-        Args:
-            x (int): Grid x-coordinate
-            y (int): Grid y-coordinate
-        
-        Returns:
-            int: Tile type
-        """
-        if 0 <= x < self.width and 0 <= y < self.height:
-            return self.grid[y][x]
-        return EMPTY
-    
-    def set_tile(self, x, y, tile_type):
-        """
-        Set the tile type at the specified grid position
-        
-        Args:
-            x (int): Grid x-coordinate
-            y (int): Grid y-coordinate
-            tile_type (int): Tile type to set
-        """
-        if 0 <= x < self.width and 0 <= y < self.height:
-            self.grid[y][x] = tile_type
-    
-    def get_player_start_position(self):
-        """
-        Get the player tank starting position
-        
-        Returns:
-            list: [x, y] position
-        """
-        return self.player_start
-    
-    def get_enemy_spawn_positions(self):
-        """
-        Get the enemy tank spawn positions
-        
-        Returns:
-            list: List of [x, y] positions
-        """
-        return self.enemy_spawns
-    
-    def get_base_position(self):
-        """
-        Get the position of the base
-        
-        Returns:
-            tuple: (x, y) position or None if not found
-        """
-        for y in range(self.height):
-            for x in range(self.width):
-                if self.grid[y][x] == BASE:
-                    return (x * TILE_SIZE, y * TILE_SIZE)
-        
-        return None
-    
-    def upgrade_base_walls(self):
-        """
-        Upgrade walls around the base to steel (for shovel power-up)
-        """
-        base_pos = self.get_base_position()
-        if not base_pos:
+    def _handle_powerup_collisions(self):
+        """Handle collisions between player and powerups"""
+        if not self.player:
             return
         
-        base_x = base_pos[0] // TILE_SIZE
-        base_y = base_pos[1] // TILE_SIZE
-        
-        # Upgrade walls around the base
-        for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0), (1, -1), (1, 1), (-1, 1), (-1, -1)]:
-            wall_x = base_x + dx
-            wall_y = base_y + dy
-            
-            if 0 <= wall_x < self.width and 0 <= wall_y < self.height:
-                # Only upgrade if it's a wall already (brick or steel)
-                if self.grid[wall_y][wall_x] == BRICK:
-                    self.grid[wall_y][wall_x] = STEEL
+        powerup_hit = pygame.sprite.spritecollideany(self.player, self.powerups)
+        if powerup_hit:
+            self.player.add_powerup(powerup_hit.type)
+            powerup_hit.kill()
     
-    def draw(self, surface):
-        """
-        Draw the level
+    def _spawn_enemies(self):
+        """Spawn enemy tanks"""
+        if self.enemies_spawned >= self.max_enemies:
+            return
         
-        Args:
-            surface (pygame.Surface): Surface to draw on
-        """
-        # Get tile sprites
-        tile_sprites = self.game.sprites.tiles
-        
-        # Draw tiles
-        for y in range(self.height):
-            for x in range(self.width):
-                tile = self.grid[y][x]
+        if len(self.enemy_tanks) < 4:  # Maximum 4 enemy tanks at a time
+            self.spawn_timer += 1
+            if self.spawn_timer >= 180:  # Spawn every 3 seconds (180 frames at 60 FPS)
+                self.spawn_timer = 0
                 
-                if tile != EMPTY:
-                    # Convert grid coordinates to pixel coordinates
-                    pixel_x = x * TILE_SIZE
-                    pixel_y = y * TILE_SIZE
+                if len(self.enemy_spawn_points) > 0:
+                    # Choose random spawn point
+                    spawn_point = random.choice(self.enemy_spawn_points)
                     
-                    # Draw the tile sprite
-                    surface.blit(tile_sprites[tile], (pixel_x, pixel_y))
+                    # Choose random enemy type
+                    enemy_type = random.choice(self.enemy_types)
+                    
+                    # Create enemy tank
+                    EnemyTank(self.game, spawn_point[0], spawn_point[1], enemy_type, self.enemy_tanks)
+                    
+                    self.enemies_spawned += 1
+    
+    def _spawn_powerup(self, x, y):
+        """Spawn a random powerup"""
+        powerup_type = random.choice(["shield", "freeze", "life"])
+        PowerUp(self.game, x, y, powerup_type, self.powerups)
+    
+    def reset_player(self):
+        """Reset player position"""
+        # Find player spawn point
+        spawn_x, spawn_y = 240, 400  # Default position
+        
+        self.player.respawn(spawn_x, spawn_y)
+    
+    def is_completed(self):
+        """Check if level is completed"""
+        return self.enemies_destroyed >= self.max_enemies and len(self.enemy_tanks) == 0
+    
+    def is_game_over(self):
+        """Check if game is over (base destroyed or player out of lives)"""
+        return (self.base and self.base.destroyed) or self.game.lives <= 0
+    
+    def freeze_enemies(self):
+        """Freeze all enemy tanks"""
+        for enemy in self.enemy_tanks:
+            enemy.freeze(FREEZE_DURATION)

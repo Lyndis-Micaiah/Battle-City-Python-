@@ -1,121 +1,165 @@
-"""
-Sound manager for Battle City game
-"""
+# Battle City Game - Sound Manager Module
+# Handles loading and playing game sounds
+
 import pygame
-import os
-from constants import *
 
 class SoundManager:
-    """
-    Manages loading and playing sound effects
-    """
+    """Class to manage game sounds"""
+    
     def __init__(self):
-        """
-        Initialize the sound manager
-        """
-        # Make sure pygame mixer is initialized
-        if not pygame.mixer.get_init():
-            pygame.mixer.init()
+        # Initialize sound system
+        pygame.mixer.init()
         
-        # Dictionary to store sound effects
+        # Create dummy sounds (since we can't load actual files)
         self.sounds = {}
         
-        # Load sound effects
-        self.load_sounds()
+        # Create basic beep sounds with different parameters
+        self._create_dummy_sounds()
         
-        # Sound settings
-        self.sound_enabled = True
-        self.volume = 0.7
-        pygame.mixer.set_num_channels(8)  # Set number of simultaneous sounds
+        # Set default volume
+        self.set_volume(0.7)
     
-    def load_sounds(self):
-        """
-        Load all sound effects
+    def _create_dummy_sounds(self):
+        """Create dummy sounds with pygame's synthesizer"""
         
-        Note: In a real implementation, you'd load actual sound files. 
-        Here we're creating placeholder beep sounds with varying frequencies.
-        """
-        # Create placeholder sounds with different parameters
-        self._create_sound(TANK_MOVE_SOUND, frequency=220, duration=100)
-        self._create_sound(TANK_FIRE_SOUND, frequency=440, duration=100)
-        self._create_sound(EXPLOSION_SOUND, frequency=110, duration=300)
-        self._create_sound(BRICK_HIT_SOUND, frequency=330, duration=50)
-        self._create_sound(STEEL_HIT_SOUND, frequency=660, duration=50)
-        self._create_sound(POWER_UP_SOUND, frequency=880, duration=200)
-        self._create_sound(GAME_START_SOUND, frequency=440, duration=500)
-        self._create_sound(GAME_OVER_SOUND, frequency=220, duration=1000)
+        # Start game sound
+        self.sounds["start_game"] = self._create_synth_sound(440, 500)  # A4, 500ms
+        
+        # Menu sounds
+        self.sounds["menu_move"] = self._create_synth_sound(330, 100)  # E4, 100ms
+        self.sounds["menu_select"] = self._create_synth_sound(523, 200)  # C5, 200ms
+        
+        # Game sounds
+        self.sounds["shoot"] = self._create_synth_sound(880, 100)  # A5, 100ms
+        self.sounds["explosion"] = self._create_synth_sound(110, 300)  # A2, 300ms
+        self.sounds["brick_hit"] = self._create_synth_sound(220, 50)  # A3, 50ms
+        self.sounds["brick_break"] = self._create_synth_sound(293, 100)  # D4, 100ms
+        self.sounds["steel_hit"] = self._create_synth_sound(440, 50)  # A4, 50ms
+        self.sounds["player_hit"] = self._create_synth_sound(550, 200)  # C#5, 200ms
+        self.sounds["enemy_hit"] = self._create_synth_sound(440, 100)  # A4, 100ms
+        self.sounds["powerup"] = self._create_synth_sound(660, 200)  # E5, 200ms
+        self.sounds["base_destroyed"] = self._create_synth_sound(165, 500)  # E3, 500ms
+        self.sounds["game_over"] = self._create_synth_sound([392, 349, 330, 294], 1000)  # G4-F4-E4-D4, 1000ms
+        self.sounds["level_complete"] = self._create_synth_sound([523, 659, 784], 1000)  # C5-E5-G5, 1000ms
+        self.sounds["pause"] = self._create_synth_sound(523, 100)  # C5, 100ms
+        self.sounds["unpause"] = self._create_synth_sound(659, 100)  # E5, 100ms
     
-    def _create_sound(self, sound_name, frequency=440, duration=100):
-        """
-        Create a beep sound with the given frequency and duration
+    def _create_synth_sound(self, frequency, duration):
+        """Create a simple synthesized sound
         
         Args:
-            sound_name (str): Name of the sound
-            frequency (int): Frequency in Hz
-            duration (int): Duration in milliseconds
+            frequency: Frequency in Hz or list of frequencies
+            duration: Duration in milliseconds
+        
+        Returns:
+            pygame.mixer.Sound object
         """
-        pygame.mixer.Sound
-        # We're using pygame's Sound constructor with a bytes buffer
-        # This creates a simple sine wave tone at the specified frequency
-        sample_rate = 44100  # CD quality audio
-        bits = 16  # 16 bits per sample
+        sample_rate = 44100
+        bits = 16
         
-        # Calculate the number of samples
-        num_samples = int(duration * sample_rate / 1000)
+        # Handle both single frequency and chords/sequences
+        if isinstance(frequency, list):
+            # Create a chord or sequence
+            frequencies = frequency
+            samples_per_freq = int(duration / len(frequencies))
+            buffer = bytearray()
+            
+            for freq in frequencies:
+                sample_count = int(samples_per_freq * sample_rate / 1000)
+                period = int(sample_rate / freq)
+                amplitude = 2**(bits - 2) - 1
+                
+                for i in range(sample_count):
+                    if i % period < period / 2:
+                        # Square wave
+                        value = amplitude
+                    else:
+                        value = -amplitude
+                    
+                    # Add value to buffer (assuming 16-bit signed little-endian)
+                    buffer.extend([value & 0xFF, (value >> 8) & 0xFF])
+        else:
+            # Create a single tone
+            sample_count = int(duration * sample_rate / 1000)
+            period = int(sample_rate / frequency)
+            amplitude = 2**(bits - 2) - 1
+            buffer = bytearray()
+            
+            for i in range(sample_count):
+                if i % period < period / 2:
+                    # Square wave
+                    value = amplitude
+                else:
+                    value = -amplitude
+                
+                # Add value to buffer (assuming 16-bit signed little-endian)
+                buffer.extend([value & 0xFF, (value >> 8) & 0xFF])
         
-        # Generate a sine wave
-        buf = bytearray(num_samples * 2)  # 2 bytes per sample for 16-bit audio
-        
-        # Create a sound with a decreasing amplitude
-        import array
-        import math
-        
-        samples = array.array('h', [0] * num_samples)  # signed short integer array
-        
-        for i in range(num_samples):
-            # Sine wave with decreasing amplitude
-            amplitude = 32767 * (1 - i / num_samples)  # 32767 is max amplitude for 16-bit audio
-            samples[i] = int(amplitude * math.sin(2 * math.pi * frequency * i / sample_rate))
-        
-        # Convert the array to bytes
-        sample_bytes = samples.tobytes()
-        
-        # Create the pygame Sound object
-        self.sounds[sound_name] = pygame.mixer.Sound(buffer=sample_bytes)
-        self.sounds[sound_name].set_volume(self.volume)
-    
-    def play_sound(self, sound_name):
-        """
-        Play a sound effect
-        
-        Args:
-            sound_name (str): Name of sound to play
-        """
-        if not self.sound_enabled:
-            return
-        
-        if sound_name in self.sounds:
-            # Tank movement sound is played in a separate channel to prevent overlap
-            if sound_name == TANK_MOVE_SOUND:
-                if not pygame.mixer.Channel(0).get_busy():
-                    pygame.mixer.Channel(0).play(self.sounds[sound_name])
-            else:
-                self.sounds[sound_name].play()
-    
-    def toggle_sound(self):
-        """
-        Toggle sound on/off
-        """
-        self.sound_enabled = not self.sound_enabled
+        return pygame.mixer.Sound(buffer=bytes(buffer))
     
     def set_volume(self, volume):
-        """
-        Set volume for all sounds
+        """Set volume for all sounds
         
         Args:
-            volume (float): Volume level (0.0 to 1.0)
+            volume: Volume level from 0.0 to 1.0
         """
-        self.volume = max(0.0, min(1.0, volume))
-        
         for sound in self.sounds.values():
-            sound.set_volume(self.volume)
+            sound.set_volume(volume)
+    
+    def play_sound(self, sound_name):
+        """Play a sound by name
+        
+        Args:
+            sound_name: Name of the sound to play
+        """
+        if sound_name in self.sounds:
+            self.sounds[sound_name].play()
+    
+    # Convenience methods for playing specific sounds
+    def play_start_game(self):
+        self.play_sound("start_game")
+    
+    def play_menu_move(self):
+        self.play_sound("menu_move")
+    
+    def play_menu_select(self):
+        self.play_sound("menu_select")
+    
+    def play_shoot(self):
+        self.play_sound("shoot")
+    
+    def play_explosion(self):
+        self.play_sound("explosion")
+    
+    def play_brick_hit(self):
+        self.play_sound("brick_hit")
+    
+    def play_brick_break(self):
+        self.play_sound("brick_break")
+    
+    def play_steel_hit(self):
+        self.play_sound("steel_hit")
+    
+    def play_player_hit(self):
+        self.play_sound("player_hit")
+    
+    def play_enemy_hit(self):
+        self.play_sound("enemy_hit")
+    
+    def play_powerup(self):
+        self.play_sound("powerup")
+    
+    def play_base_destroyed(self):
+        self.play_sound("base_destroyed")
+    
+    def play_game_over(self):
+        self.play_sound("game_over")
+    
+    def play_level_complete(self):
+        self.play_sound("level_complete")
+    
+    def play_pause(self):
+        self.play_sound("pause")
+    
+    def play_unpause(self):
+        self.play_sound("unpause")
